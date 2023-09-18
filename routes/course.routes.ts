@@ -4,10 +4,12 @@ import {
   addReply,
   addReplyReview,
   addReview,
+  deleteCourse,
   editCourse,
   getAllCourses,
   getCourseByUser,
   getSingleCourse,
+  retrieveCourse,
   uploadCourse,
 } from "../controllers/course.controller";
 import { authorizeRoles, isAuthenticated } from "../middleware/auth";
@@ -41,5 +43,8 @@ courseRouter.put(
   authorizeRoles("admin"),
   addReplyReview,
 );
+
+courseRouter.delete("/delete/:id", isAuthenticated, deleteCourse);
+courseRouter.get("/retrieve/:id", isAuthenticated, retrieveCourse);
 
 export default courseRouter;

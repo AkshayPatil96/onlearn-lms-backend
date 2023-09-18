@@ -29,6 +29,7 @@ interface ICourseData extends Document {
   links: ILink[];
   suggestion: string;
   questions: IComment[];
+  isDeleted?: boolean;
 }
 
 export interface ICourse extends Document {
@@ -46,6 +47,9 @@ export interface ICourse extends Document {
   reviews: IReview[];
   ratings: number;
   puchased?: number;
+  isDeleted?: boolean;
+  user?: IUser;
+  editAccess?: [IUser];
 }
 
 const reviewSchema = new Schema<IReview>(
@@ -118,6 +122,10 @@ const courseDataSchema = new Schema<ICourseData>(
     },
     videoPlayer: {
       type: String,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
     },
     links: [linkSchema],
     suggestion: {
@@ -199,6 +207,21 @@ const courseSchema = new Schema<ICourse>(
     puchased: {
       type: Number,
       default: 0,
+    },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    editAccess: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    isDeleted: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true },

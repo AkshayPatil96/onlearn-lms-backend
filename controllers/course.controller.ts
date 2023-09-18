@@ -6,11 +6,17 @@ import path from "path";
 import redis from "../config/redis";
 import { CatchAsyncErrors } from "../middleware/catchAsyncErrors";
 import CourseModel from "../models/course.model";
-import { createCourse } from "../services/course.service";
+import {
+  createCourse,
+  deleteCourseTemperoryService,
+  getAllCoursesServices,
+  retrieveDeletedCourseService,
+} from "../services/course.service";
 import ErrorHandler from "../utils/ErrorHandler";
 import sendMail from "../utils/sendMail";
+import Notification from "../models/notification.model";
 
-// upload course
+// upload course - only for course creator
 export const uploadCourse = CatchAsyncErrors(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -29,6 +35,8 @@ export const uploadCourse = CatchAsyncErrors(
         };
       }
 
+      data.user = req.user?._id;
+
       createCourse(data, res, next);
     } catch (error: any) {
       return next(new ErrorHandler(error.message, 500));
@@ -36,7 +44,7 @@ export const uploadCourse = CatchAsyncErrors(
   },
 );
 
-// edit course
+// edit course - only for course creator and access users
 export const editCourse = CatchAsyncErrors(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -57,8 +65,12 @@ export const editCourse = CatchAsyncErrors(
         };
       }
 
-      const course = await CourseModel.findByIdAndUpdate(
-        req.params.id,
+      const course = await CourseModel.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          isDeleted: false,
+          $or: [{ user: req.user?._id }, { editAccess: req.user?._id }],
+        },
         { $set: data },
         {
           new: true,
@@ -85,12 +97,21 @@ export const getSingleCourse = CatchAsyncErrors(
 
       if (isCached) {
         const course = JSON.parse(isCached);
+
+        // check if course is deleted
+        if (course.isDeleted) {
+          return next(new ErrorHandler("Course not found", 404));
+        }
+
         res.status(200).json({
           success: true,
           course,
         });
       } else {
-        const course = await CourseModel.findById(req.params.id).select(
+        const course = await CourseModel.findOne({
+          _id: courseId,
+          isDeleted: false,
+        }).select(
           "-courseData.videoUrl -courseData.suggestion -courseData.questions -courseData.links",
         );
 
@@ -119,12 +140,18 @@ export const getAllCourses = CatchAsyncErrors(
 
       if (isCached) {
         const courses = JSON.parse(isCached);
+
+        // check if course is deleted
+        const filteredCourses = courses.filter(
+          (course: any) => course.isDeleted === false,
+        );
+
         res.status(200).json({
           success: true,
-          courses,
+          courses: filteredCourses,
         });
       } else {
-        const courses = await CourseModel.find().select(
+        const courses = await CourseModel.find({ isDeleted: false }).select(
           "-courseData.videoUrl -courseData.suggestion -courseData.questions -courseData.links",
         );
 
@@ -158,7 +185,10 @@ export const getCourseByUser = CatchAsyncErrors(
         );
       }
 
-      const course = await CourseModel.findById(courseId);
+      const course = await CourseModel.findOne({
+        _id: courseId,
+        isDeleted: false,
+      });
 
       const content = course?.courseData;
 
@@ -183,14 +213,18 @@ export const addQuestion = CatchAsyncErrors(
     try {
       const { question, courseId, contentId }: IQuestionData = req.body;
 
-      const course = await CourseModel.findById(courseId);
+      const course = await CourseModel.findOne({
+        _id: courseId,
+        isDeleted: false,
+      });
 
       if (!mongoose.Types.ObjectId.isValid(courseId)) {
         return next(new ErrorHandler("Invalid course id", 400));
       }
 
       const courseContent = course?.courseData?.find(
-        (content: any) => content._id.toString() === contentId,
+        (content: any) =>
+          content._id.toString() === contentId && !content.isDeleted,
       );
 
       if (!courseContent) {
@@ -206,6 +240,13 @@ export const addQuestion = CatchAsyncErrors(
 
       // push the question to the course content
       courseContent.questions.push(newQuestion);
+
+      // send notification to admin
+      await Notification.create({
+        title: "New Question Received",
+        message: `You have received a new question for ${courseContent?.title} of ${course?.name} from ${req.user?.name}`,
+        user: req.user?._id,
+      });
 
       // save the course
       await course?.save();
@@ -233,16 +274,18 @@ export const addReply = CatchAsyncErrors(
     try {
       const { reply, courseId, contentId, questionId }: IReplyData = req.body;
 
-      const course = await CourseModel.findById(courseId).populate(
-        "courseData.questions.user",
-      );
+      const course = await CourseModel.findOne({
+        _id: courseId,
+        isDeleted: false,
+      }).populate("courseData.questions.user");
 
       if (!mongoose.Types.ObjectId.isValid(courseId)) {
         return next(new ErrorHandler("Invalid course id", 400));
       }
 
       const courseContent = course?.courseData?.find(
-        (content: any) => content._id.toString() === contentId,
+        (content: any) =>
+          content._id.toString() === contentId && !content.isDeleted,
       );
 
       if (!courseContent) {
@@ -271,8 +314,12 @@ export const addReply = CatchAsyncErrors(
 
       if (req.user?._id?.toString() === question?.user?._id?.toString()) {
         // create notification
+        await Notification.create({
+          title: "New Reply Received",
+          message: `You have received a new reply for your question for ${courseContent?.title} of ${course?.name} from ${req.user?.name}`,
+          user: req.user?._id,
+        });
 
-        //
         res.status(200).json({
           success: true,
           message: "Reply added successfully",
@@ -335,7 +382,10 @@ export const addReview = CatchAsyncErrors(
         );
       }
 
-      const course = await CourseModel.findById(courseId);
+      const course = await CourseModel.findOne({
+        _id: courseId,
+        isDeleted: false,
+      });
 
       const reviewData: any = {
         user: req.user?._id,
@@ -343,8 +393,6 @@ export const addReview = CatchAsyncErrors(
         comment,
         commentReplies: [],
       };
-
-      console.log("reviewData: ", reviewData);
 
       // push the review to the course
       course?.reviews?.push(reviewData);
@@ -366,12 +414,16 @@ export const addReview = CatchAsyncErrors(
       // save the course
       await course?.save();
 
+      // create notification
       const notification = {
         title: "New Review Received",
         message: `You have received a new review for ${course?.name} from ${req.user?.name}`,
       };
 
-      // create notification
+      await Notification.create({
+        ...notification,
+        user: req.user?._id,
+      });
 
       res.status(200).json({
         success: true,
@@ -395,9 +447,10 @@ export const addReplyReview = CatchAsyncErrors(
     try {
       const { comment, courseId, reviewId }: IReplyReviewData = req.body;
 
-      const course = await CourseModel.findById(courseId).populate(
-        "reviews.user",
-      );
+      const course = await CourseModel.findOne({
+        _id: courseId,
+        isDeleted: false,
+      }).populate("reviews.user");
 
       if (!mongoose.Types.ObjectId.isValid(courseId)) {
         return next(new ErrorHandler("Invalid course id", 400));
@@ -435,6 +488,64 @@ export const addReplyReview = CatchAsyncErrors(
         message: "Reply added successfully",
         course,
       });
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, 500));
+    }
+  },
+);
+
+// delete course => api/v1/course/delete/:id (DELETE) (course creator)
+export const deleteCourse = CatchAsyncErrors(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?._id;
+      const { id } = req.params;
+
+      const course = await CourseModel.findOne({
+        _id: id,
+        isDeleted: false,
+        user: userId,
+      });
+
+      if (!course) {
+        return next(
+          new ErrorHandler(
+            "You dont have permission to access this course",
+            404,
+          ),
+        );
+      } else {
+        deleteCourseTemperoryService(id, res);
+      }
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, 500));
+    }
+  },
+);
+
+// retrieve course => api/v1/course/retrieve/:id (GET) (course creator)
+export const retrieveCourse = CatchAsyncErrors(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?._id;
+      const { id } = req.params;
+
+      const course = await CourseModel.findOne({
+        _id: id,
+        isDeleted: true,
+        user: userId,
+      });
+
+      if (!course) {
+        next(
+          new ErrorHandler(
+            "You dont have permission to access this course",
+            404,
+          ),
+        );
+      } else {
+        retrieveDeletedCourseService(id, res);
+      }
     } catch (error: any) {
       return next(new ErrorHandler(error.message, 500));
     }

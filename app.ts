@@ -4,7 +4,14 @@ import express, { NextFunction, Request, Response } from "express";
 import morgan from "morgan";
 
 import { ErrorMiddleware } from "./middleware/error";
-import { authRoute, courseRoute, userRoute } from "./routes";
+import {
+  authRoute,
+  courseRoute,
+  notificationRoute,
+  orderRoute,
+  userRoute,
+  adminRouter,
+} from "./routes";
 
 require("dotenv").config();
 
@@ -40,6 +47,9 @@ app.get("/", (req: Request, res: Response, next: NextFunction) => {
 app.use("/api/v1/auth", authRoute);
 app.use("/api/v1/user", userRoute);
 app.use("/api/v1/course", courseRoute);
+app.use("/api/v1/order", orderRoute);
+app.use("/api/v1/notification", notificationRoute);
+app.use("/api/v1/admin", adminRouter);
 
 app.all("*", (req: Request, res: Response, next: NextFunction) => {
   const err = new Error(`Can't find ${req.originalUrl} on this server`) as any;

@@ -8,7 +8,7 @@ import path from "path";
 import ejs from "ejs";
 import Notification from "../models/notification.model";
 import sendMail from "../utils/sendMail";
-import { newOrder } from "../services/order.service";
+import { getAllOrdersService, newOrder } from "../services/order.service";
 
 // create order   =>   /api/v1/order/new
 export const createOrder = CatchAsyncErrors(
@@ -28,7 +28,10 @@ export const createOrder = CatchAsyncErrors(
         );
       }
 
-      const course = await CourseModel.findById(courseId);
+      const course = await CourseModel.findOne({
+        _id: courseId,
+        isDeleted: false,
+      });
 
       if (!course) {
         return next(new ErrorHandler("Course not found", 404));
@@ -37,13 +40,14 @@ export const createOrder = CatchAsyncErrors(
       const data: any = {
         user: req.user?._id,
         courseId: course._id,
+        payment_info,
       };
 
       newOrder(data, res, next);
 
       const mailData = {
         order: {
-          _id: course._id.slice(0, 5),
+          _id: course._id?.toString()?.slice(0, 5),
           name: course.name,
           price: course.price,
           date: new Date().toLocaleDateString("en-US", {
@@ -53,6 +57,50 @@ export const createOrder = CatchAsyncErrors(
           }),
         },
       };
+
+      const html = await ejs.renderFile(
+        path.join(__dirname, "../views/order-confirmation.ejs"),
+        mailData,
+      );
+
+      try {
+        if (user) {
+          await sendMail({
+            email: user?.email,
+            subject: "Order Confirmation",
+            template: "order-confirmation.ejs",
+            data: mailData,
+          });
+        }
+      } catch (error: any) {
+        new ErrorHandler(error.message, error.statusCode);
+      }
+
+      user?.courses.push({
+        courseId: course._id,
+      });
+
+      await user?.save();
+
+      const notification = await Notification.create({
+        user: user?._id,
+        title: "New Order",
+        message: `You have a new order from ${course.name}`,
+      });
+
+      if (course.puchased) {
+        course.puchased += 1;
+      } else {
+        course.puchased = 1;
+      }
+
+      await course.save();
+
+      res.status(201).json({
+        success: true,
+        message: "Order created successfully",
+        order: course,
+      });
     } catch (error: any) {
       next(new ErrorHandler(error.message, error.statusCode));
     }

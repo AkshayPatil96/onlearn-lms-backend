@@ -15,6 +15,7 @@ export interface IUser extends Document {
   role: string;
   isVerified: boolean;
   courses: Array<{ courseId: string }>;
+  isDeleted: boolean;
   comparePassword: (enteredPassword: string) => Promise<boolean>;
   signAccessToken: () => string;
   signRefreshToken: () => string;
@@ -69,6 +70,10 @@ const userSchema: Schema<IUser> = new Schema(
         },
       },
     ],
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );

@@ -3,8 +3,15 @@ import { NextFunction, Request, Response } from "express";
 import redis from "../config/redis";
 import { CatchAsyncErrors } from "../middleware/catchAsyncErrors";
 import UserModel from "../models/user.model";
-import { getUserById } from "../services/user.service";
+import {
+  deleteUserTemperorySevice,
+  getAllUsersService,
+  getUserById,
+  retrieveUserService,
+} from "../services/user.service";
 import ErrorHandler from "../utils/ErrorHandler";
+import cron from "node-cron";
+import { error } from "console";
 
 // get user info
 export const getUserInfo = CatchAsyncErrors(
@@ -146,6 +153,43 @@ export const updateUserAvatar = CatchAsyncErrors(
         message: "Avatar updated successfully",
         user,
       });
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, 400));
+    }
+  },
+);
+
+// delete user temperory => /api/v1/user/delete-temperory (DELETE) (user)
+export const deleteUserTemperory = CatchAsyncErrors(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      deleteUserTemperorySevice(req.user?._id, res);
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, 400));
+    }
+  },
+);
+
+// cron job to delete user after 14 days of temperory deletion
+cron.schedule("0 0 */14 * *", async () => {
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+
+  await UserModel.deleteMany({
+    updatedAt: { $lte: fourteenDaysAgo },
+    isDeleted: true,
+  });
+  console.log("Deleted users");
+
+  await redis.flushall();
+
+  console.log("Flushed redis");
+});
+
+// retrieve temperory deleted user => /api/v1/users/retrieve (GET) (user)
+export const retrieveTemperoryDeletedUser = CatchAsyncErrors(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      retrieveUserService(req.user?._id as string, res);
     } catch (error: any) {
       return next(new ErrorHandler(error.message, 400));
     }
