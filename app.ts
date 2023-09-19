@@ -11,6 +11,8 @@ import {
   orderRoute,
   userRoute,
   adminRouter,
+  analyticsRouter,
+  layoutRouter,
 } from "./routes";
 
 require("dotenv").config();
@@ -50,6 +52,8 @@ app.use("/api/v1/course", courseRoute);
 app.use("/api/v1/order", orderRoute);
 app.use("/api/v1/notification", notificationRoute);
 app.use("/api/v1/admin", adminRouter);
+app.use("/api/v1/analytics", analyticsRouter);
+app.use("/api/v1/layout", layoutRouter);
 
 app.all("*", (req: Request, res: Response, next: NextFunction) => {
   const err = new Error(`Can't find ${req.originalUrl} on this server`) as any;
