@@ -1,6 +1,6 @@
 import { Response } from "express";
-import UserModel from "../models/user.model";
 import redis from "../config/redis";
+import UserModel from "../models/user.model";
 
 // get user by id
 export const getUserById = async (id: string, res: Response) => {
@@ -57,7 +57,7 @@ export const updateUserRoleService = async (
     { new: true },
   );
 
-  await redis.set(user?._id, JSON.stringify(user));
+  await redis.set(user?._id, JSON.stringify(user), "EX", 7 * 24 * 60 * 60);
 
   res.status(200).json({
     success: true,
@@ -83,7 +83,7 @@ export const deleteUserTemperorySevice = async (id: string, res: Response) => {
 
   await user.save();
 
-  await redis.set(user?._id, JSON.stringify(user));
+  await redis.set(user?._id, JSON.stringify(user), "EX", 7 * 24 * 60 * 60);
 
   res.status(200).json({
     success: true,
@@ -127,7 +127,7 @@ export const retrieveUserService = async (id: string, res: Response) => {
 
     await user.save();
 
-    await redis.set(user?._id, JSON.stringify(user));
+    await redis.set(user?._id, JSON.stringify(user), "EX", 7 * 24 * 60 * 60);
 
     res.status(200).json({
       success: true,
