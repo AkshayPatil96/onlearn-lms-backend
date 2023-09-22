@@ -5,14 +5,14 @@ import morgan from "morgan";
 
 import { ErrorMiddleware } from "./middleware/error";
 import {
+  adminRouter,
+  analyticsRouter,
   authRoute,
   courseRoute,
+  layoutRouter,
   notificationRoute,
   orderRoute,
   userRoute,
-  adminRouter,
-  analyticsRouter,
-  layoutRouter,
 } from "./routes";
 
 require("dotenv").config();
@@ -33,7 +33,8 @@ if (process.env.NODE_ENV === "development") {
 // cors
 app.use(
   cors({
-    origin: process.env.ORIGIN,
+    origin: ["http://localhost:3000"],
+    credentials: true,
   }),
 );
 
