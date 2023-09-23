@@ -14,6 +14,7 @@ import {
 } from "../utils/jwt";
 import sendMail from "../utils/sendMail";
 import { getUserById } from "../services/user.service";
+import cloudinary from "cloudinary";
 
 dotenv.config();
 
@@ -259,6 +260,24 @@ export const socialLogin = CatchAsyncErrors(
       const user = await UserModel.findOne({ email });
 
       if (!user) {
+        if (avatar) {
+          const result = await cloudinary.v2.uploader.upload(avatar, {
+            folder: "avatars",
+            width: 150,
+          });
+
+          const newUser = await UserModel.create({
+            name,
+            email,
+            avatar: {
+              public_id: result.public_id,
+              url: result.secure_url,
+            },
+          });
+
+          await sendToken(newUser, 200, res);
+        }
+
         const newUser = await UserModel.create({
           name,
           email,
