@@ -117,6 +117,7 @@ export const updateUserPassword = CatchAsyncErrors(
 interface IUpdateUserAvatar {
   avatar: string;
 }
+
 export const updateUserAvatar = CatchAsyncErrors(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -128,21 +129,21 @@ export const updateUserAvatar = CatchAsyncErrors(
         if (user) {
           if (user?.avatar?.public_id) {
             await cloudinary.v2.uploader.destroy(user.avatar.public_id);
-          } else {
-            let image = await cloudinary.v2.uploader.upload(avatar, {
-              folder: "avatar",
-              width: 150,
-            });
-
-            user.avatar = {
-              public_id: image.public_id,
-              url: image.secure_url,
-            };
-
-            await user.save();
-
-            await redis.set(user?._id, JSON.stringify(user));
           }
+          let image = await cloudinary.v2.uploader.upload(avatar, {
+            folder: "avatar",
+            width: 150,
+          });
+
+          console.log("image: ", image);
+          user.avatar = {
+            public_id: image.public_id,
+            url: image.secure_url,
+          };
+
+          await user.save();
+
+          await redis.set(user?._id, JSON.stringify(user));
         }
       } else {
         return next(new ErrorHandler("Please provide an image", 400));

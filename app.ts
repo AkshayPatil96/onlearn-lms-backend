@@ -56,6 +56,7 @@ app.use("/api/v1/admin", adminRouter);
 app.use("/api/v1/analytics", analyticsRouter);
 app.use("/api/v1/layout", layoutRouter);
 
+// Error
 app.all("*", (req: Request, res: Response, next: NextFunction) => {
   const err = new Error(`Can't find ${req.originalUrl} on this server`) as any;
   err.statusCode = 404;
