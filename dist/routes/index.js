@@ -1,0 +1,22 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.layoutRouter = exports.analyticsRouter = exports.adminRouter = exports.notificationRoute = exports.orderRoute = exports.courseRoute = exports.userRoute = exports.authRoute = void 0;
+const auth_routes_1 = __importDefault(require("./auth.routes"));
+exports.authRoute = auth_routes_1.default;
+const user_routes_1 = __importDefault(require("./user.routes"));
+exports.userRoute = user_routes_1.default;
+const course_routes_1 = __importDefault(require("./course.routes"));
+exports.courseRoute = course_routes_1.default;
+const order_routes_1 = __importDefault(require("./order.routes"));
+exports.orderRoute = order_routes_1.default;
+const notification_routes_1 = __importDefault(require("./notification.routes"));
+exports.notificationRoute = notification_routes_1.default;
+const admin_routes_1 = __importDefault(require("./admin.routes"));
+exports.adminRouter = admin_routes_1.default;
+const analytics_routes_1 = __importDefault(require("./analytics.routes"));
+exports.analyticsRouter = analytics_routes_1.default;
+const layout_routes_1 = __importDefault(require("./layout.routes"));
+exports.layoutRouter = layout_routes_1.default;

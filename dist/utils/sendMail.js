@@ -1,36 +1,37 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const nodemailer_1 = __importDefault(require("nodemailer"));
 const ejs_1 = __importDefault(require("ejs"));
+const nodemailer_1 = __importDefault(require("nodemailer"));
 const path_1 = __importDefault(require("path"));
-const sendMail = ({ email, subject, template, data, }) => __awaiter(void 0, void 0, void 0, function* () {
+const sendMail = async ({ email, subject, template, data, }) => {
     const transporter = nodemailer_1.default.createTransport({
         host: process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT || "587"),
         service: process.env.SMTP_SERVICE,
         auth: {
-            user: process.env.SMTP_EMAIL,
+            user: process.env.SMTP_MAIL,
             pass: process.env.SMTP_PASSWORD,
         },
     });
+    console.log("__dirname: ", path_1.default.join(__dirname, "../views", template));
+    console.log("data: ", data);
+    console.log('email: ', email);
     const mailOptions = {
         from: process.env.SMTP_EMAIL,
         to: email,
         subject,
-        html: yield ejs_1.default.renderFile(path_1.default.join(__dirname, "../views", template), data),
+        html: await ejs_1.default.renderFile(path_1.default.join(__dirname, "../views", template), data),
     };
-    yield transporter.sendMail(mailOptions);
-});
+    await transporter
+        .sendMail(mailOptions)
+        .then((info) => {
+        console.log("Message sent: %s", info.messageId);
+    })
+        .catch((error) => {
+        console.log("Error: ", error);
+    });
+};
 exports.default = sendMail;
